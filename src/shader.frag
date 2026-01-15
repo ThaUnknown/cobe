@@ -168,6 +168,9 @@ void main() {
     layer += vec4(baseColor * colorFactor, 1.);
 
     float markerLight = 0.;
+    vec3 markerColorAccum = vec3(0.);
+    float markerAlphaAccum = 0.;
+    float largestMarkerSize = 0.;
     for (int m = 0; m < 128; m += 2) {
       if (m >= num) break;
       vec4 marker = markers[m]; // Position and size
@@ -182,15 +185,16 @@ void main() {
         float halfSize = size * .5;
         float hr = smoothstep(halfSize, 0., dis);
         markerLight += hr;
-        // If marker has a custom color (w component is 1), use it
-        if (markerColorData.w > 0.5) {
-          layer.xyz = mix(layer.xyz, markerColorData.xyz, hr * lighting);
-        } else {
-          // Otherwise use the global marker color
-          layer.xyz = mix(layer.xyz, markerColor, hr * lighting);
+        // Use color AND alpha from the largest marker to avoid artifacts
+        if (size > largestMarkerSize) {
+          largestMarkerSize = size;
+          markerAlphaAccum = hr * lighting;
+          markerColorAccum = markerColorData.w > 0.5 ? markerColorData.xyz : markerColor;
         }
       }
     }
+    // Apply marker color once using the largest marker's color and alpha
+    layer.xyz = mix(layer.xyz, markerColorAccum, min(markerAlphaAccum, 1.0));
     layer.xyz += pow(1. - dotNL, 4.) * glowColor;
 
     color += layer * (1. + opacity) * .5;
